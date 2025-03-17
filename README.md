@@ -1,4 +1,4 @@
-# <div align="center">🚀 Project Chat API</div>
+# <div align="center">🚀 IdeaGO Chat API</div>
 
 <div align="center">
   <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTKAr6zsTg5fu18DZgFK9t0XaMTIujwXTZmkQ&s" alt="Project Chat API Logo" width="300">
