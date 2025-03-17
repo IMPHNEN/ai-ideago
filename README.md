@@ -69,7 +69,11 @@ GROQ_MODEL_NAME=mixtral-8x7b-32768
 
 Start the FastAPI server:
 ```bash
+# Python Runtime for Production
 python app.py
+
+# Asyncronous Runtime for Development (With Reloader)
+uvicorn app:app --reload
 ```
 
 The server will run at `http://localhost:8000`
