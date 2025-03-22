@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
 from sqlalchemy import Column, String, DateTime, ForeignKey, JSON, text
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, List
 import uuid
 from datetime import datetime
 import json
@@ -31,7 +31,7 @@ async def lifespan(app: FastAPI):
     await engine.dispose()
 
 # Create FastAPI app
-app = FastAPI(title="Project Chat API", lifespan=lifespan)
+app = FastAPI(title="IdeaGO Chat API", lifespan=lifespan)
 
 # Configure CORS
 app.add_middleware(
@@ -95,7 +95,7 @@ async def get_db():
 # Routes
 @app.get("/")
 async def root():
-    return {"status": "service start..."}
+    return {"status": "IdeaGO Chat API is running", "version": "1.0.0"}
 
 @app.post("/chat", response_model=ChatResponse)
 async def chat(
@@ -104,8 +104,10 @@ async def chat(
     db: AsyncSession = Depends(get_db)
 ):
     try:
-        # Create or get session
+        # Get the chat chain from app state
         chat_chain = request.app.state.chat_chain
+        
+        # Create or get session
         if not message.session_id:
             session = ChatSession(user_id=message.user_id)
             db.add(session)
@@ -115,6 +117,23 @@ async def chat(
             chat_chain.clear_memory()
         else:
             session_id = message.session_id
+            
+            # When continuing a conversation, load previous messages into memory
+            query = text("SELECT role, content FROM chat_messages WHERE session_id = :session_id ORDER BY created_at ASC")
+            result = await db.execute(query, {"session_id": session_id})
+            previous_messages = result.fetchall()
+            
+            # Only initialize memory if it's empty
+            if not chat_chain.memory.chat_memory.messages and previous_messages:
+                print(f"Loading {len(previous_messages)} previous messages into memory")
+                # Load past messages into memory
+                from langchain.schema import HumanMessage, AIMessage
+                
+                for role, content in previous_messages:
+                    if role == "user":
+                        chat_chain.memory.chat_memory.add_message(HumanMessage(content=content))
+                    elif role == "assistant":
+                        chat_chain.memory.chat_memory.add_message(AIMessage(content=content))
             
         # Store user message
         user_message = ChatMessage(
@@ -135,10 +154,22 @@ async def chat(
         )
         db.add(assistant_message)
         
+        # If we have parsed data, store it
         if result["is_final"] and result["parsed_data"]:
+            # Ensure proper structure for talents
+            data = result["parsed_data"]
+            
+            # Convert "talent" to "talents" array if needed
+            if "talent" in data and "talents" not in data:
+                data["talents"] = [data["talent"]]
+                del data["talent"]
+            elif not isinstance(data.get("talents", []), list):
+                data["talents"] = [data["talents"]]
+            
+            # Store the updated data
             project_data = ProjectData(
                 session_id=session_id,
-                project_data=result["parsed_data"]
+                project_data=data
             )
             db.add(project_data)
         
@@ -157,6 +188,14 @@ async def chat(
                     project_data = json.loads(project_data_row[0])
                 else:
                     project_data = project_data_row[0]
+                
+                # Ensure proper structure for talents
+                if "talent" in project_data and "talents" not in project_data:
+                    project_data["talents"] = [project_data["talent"]]
+                    del project_data["talent"]
+                elif not isinstance(project_data.get("talents", []), list):
+                    project_data["talents"] = [project_data["talents"]]
+                
             except json.JSONDecodeError:
                 print_exc()
                 project_data = None
@@ -176,4 +215,11 @@ async def chat(
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run(
+        "app:app",
+        host="0.0.0.0", 
+        port=8000,
+        reload=True,
+        reload_includes=["*.py"],
+        reload_excludes=["__pycache__/*", ".*", "*.pyc"]
+    )
