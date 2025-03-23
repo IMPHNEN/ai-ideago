@@ -1,7 +1,7 @@
 # <div align="center">🚀 IdeaGO Chat API</div>
 
 <div align="center">
-  <img src="https://i.imgur.com/8wEGGJ2.png" alt="IdeaGO Chat API Logo" width="300">
+  <img src="https://i.pinimg.com/736x/d9/f7/94/d9f79474001c33eaee83e02b6cc52eab.jpg" alt="IdeaGO Chat API Logo" width="300">
   <p><em>Intelligent project definition through conversation</em></p>
 </div>
 
